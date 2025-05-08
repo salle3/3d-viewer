@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Scroll Animation with GLB</title>
+  <style>
+    body, html {
+      margin: 0;
+      height: 400vh; /* makes page scrollable */
+      background: transparent; /* Change to transparent */
+    }
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+  </style>
+  <!-- Import maps let the browser resolve bare module specifiers -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js"
+      }
+    }
+  </script>
+</head>
+<body>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.2/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.2/dist/ScrollTrigger.min.js"></script>
+
+<script type="module">
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+  // Init scene
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 100);
+  camera.position.z = 3;
+
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+  scene.add(light);
+
+  // Load GLB
+  const loader = new GLTFLoader();
+  let model;
+  loader.load('model.glb', (gltf) => {
+    model = gltf.scene;
+    scene.add(model);
+    
+    // Center and scale the model
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.x = -center.x;
+    model.position.y = -center.y;
+    model.position.z = -center.z;
+    
+    // Set 30-degree clockwise rotation (π/6 radians)
+    model.rotation.y = -Math.PI/6;
+    gsap.set(model.scale, {x: 1, y: 1, z: 1});
+    gsap.set(model.position, {x: 0, y: 0, z: 0});
+    
+    // Add directionl light for better visibility of spiral features
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 5, 5);
+    scene.add(directionalLight);
+    
+    // Add ambient light for overall illumination
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    scene.add(ambientLight);
+
+    // GSAP animation on scroll
+    gsap.registerPlugin(ScrollTrigger);
+    
+    // Create advanced spiral animation timeline
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: document.body,
+        start: "top top",
+        end: "bottom bottom",
+        scrub: 0.5, // smoother scrubbing
+      }
+    });
+    
+    // Enhanced spiral animations - starting with a delay to keep initial position visible
+    tl
+      // First, hold in place for a bit of scrolling (20% of scroll)
+      .to(model.rotation, {
+        y: -Math.PI/6, // Keep the same rotation 
+        duration: 1
+      }, 0)
+      
+      // Then start animating after scrolling begins
+      .to(model.rotation, {
+        y: -Math.PI/6 + Math.PI * 3, // Additional rotation beyond the initial position
+        x: Math.PI * 0.25,
+        duration: 3,
+        ease: "power1.inOut"
+      }, 1) // Start this animation later
+      
+      // Zoom in to see details of the spiral
+      .to(camera.position, {
+        z: 1.5,
+        duration: 2,
+        ease: "power2.inOut"
+      }, 0.2)
+      
+      // Rotate to another angle
+      .to(model.rotation, {
+        z: Math.PI * 0.5,
+        duration: 2, 
+        ease: "sine.inOut"
+      }, 1)
+      
+      // Move camera to side view
+      .to(camera.position, {
+        x: 2,
+        y: 0.5,
+        z: 2,
+        duration: 2,
+        ease: "power2.out"
+      }, 1.5)
+      
+      // Spiral unwinding effect
+      .to(model.rotation, {
+        y: Math.PI * 6,
+        z: Math.PI * -0.5,
+        duration: 3,
+        ease: "none"
+      }, 3)
+      
+      // Scale up to show the whole structure
+      .to(model.scale, {
+        x: 1.8,
+        y: 1.8,
+        z: 1.8,
+        duration: 2,
+        ease: "back.out(1.2)"
+      }, 3.5)
+      
+      // Orbit around to view from another angle
+      .to(camera.position, {
+        x: -2,
+        y: 1,
+        z: 2,
+        duration: 3,
+        ease: "power1.inOut"
+      }, 5);
+  });
+
+  // Animate
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // Responsive
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
+</body>
+</html>
+
