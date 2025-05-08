@@ -46,6 +46,9 @@
   const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
   scene.add(light);
 
+  // Create a variable to hold the timeline that's accessible outside the loader callback
+  let tl;
+
   // Load GLB
   const loader = new GLTFLoader();
   let model;
@@ -78,7 +81,7 @@
     gsap.registerPlugin(ScrollTrigger);
     
     // Create advanced spiral animation timeline
-    const tl = gsap.timeline({
+    tl = gsap.timeline({
       scrollTrigger: {
         trigger: document.body,
         start: "top top",
@@ -151,7 +154,27 @@
         duration: 3,
         ease: "power1.inOut"
       }, 5);
+      
+    // Setup message listener after timeline is created
+    setupMessageListener();
   });
+
+  // Function to set up the message listener from parent window
+  function setupMessageListener() {
+    window.addEventListener('message', (event) => {
+      if (event.data && typeof event.data.scrollRatio === 'number' && tl) {
+        const scrollRatio = event.data.scrollRatio;
+        // Update the animation progress based on the scroll ratio from parent
+        ScrollTrigger.update(); // Recalculate triggers if needed
+        gsap.to(tl, { totalProgress: scrollRatio, duration: 0.1, overwrite: true });
+      }
+    });
+    
+    // Notify parent that iframe is ready
+    if (window.parent !== window) {
+      window.parent.postMessage({ status: "ready" }, "*");
+    }
+  }
 
   // Animate
   function animate() {
