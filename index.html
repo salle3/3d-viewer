@@ -52,10 +52,13 @@
 
   // Variable to track if mouse is hovering
   let isHovering = false;
+  // Store original materials for restoration (keep for potential future use)
+  let originalMaterials = [];
   
   // Add event listeners for hover effect
   renderer.domElement.addEventListener('mouseenter', () => {
     isHovering = true;
+    // No material change on hover, only scale animation
   });
   
   renderer.domElement.addEventListener('mouseleave', () => {
@@ -87,14 +90,60 @@
     const initialScale = 1.8; // Increased from 1.3
     model.scale.set(initialScale, initialScale, initialScale);
     
-    // Add directional light for better visibility
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    // Create glass-like material - even darker but less matte
+    const glassMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x555555, // Much darker gray color
+      metalness: 0.15,
+      roughness: 0.15, // Decreased roughness to make it less matte
+      transmission: 0.8, // Slightly higher transmission
+      transparent: true,
+      opacity: 0.7, // Same opacity
+      clearcoat: 0.85, // Slightly more clearcoat
+      clearcoatRoughness: 0.2, // Less roughness in clearcoat
+      ior: 1.5, // Same index of refraction
+      envMapIntensity: 0.8, // Same environment reflection
+      side: THREE.DoubleSide
+    });
+    
+    // Apply the glass material to all meshes in the model
+    model.traverse((child) => {
+      if (child.isMesh) {
+        // Save original material in case we need it for hover effects
+        originalMaterials.push({
+          object: child,
+          material: child.material.clone()
+        });
+        
+        // Apply glass material
+        child.material = glassMaterial.clone();
+      }
+    });
+    
+    // Add directional light for better visibility of glass material
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
     
+    // Add second directional light from opposite side for better refraction
+    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight2.position.set(-5, -2, -5);
+    scene.add(directionalLight2);
+    
     // Add ambient light for overall illumination
-    const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
     scene.add(ambientLight);
+    
+    // Create environment map for reflections
+    const cubeTextureLoader = new THREE.CubeTextureLoader();
+    const envMap = cubeTextureLoader.load([
+      'https://threejs.org/examples/textures/cube/Park2/posx.jpg',
+      'https://threejs.org/examples/textures/cube/Park2/negx.jpg',
+      'https://threejs.org/examples/textures/cube/Park2/posy.jpg',
+      'https://threejs.org/examples/textures/cube/Park2/negy.jpg',
+      'https://threejs.org/examples/textures/cube/Park2/posz.jpg',
+      'https://threejs.org/examples/textures/cube/Park2/negz.jpg'
+    ]);
+    scene.environment = envMap;
     
     // Start the animation loop
     animate();
